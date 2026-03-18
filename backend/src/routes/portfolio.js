@@ -82,7 +82,7 @@ router.post('/holdings', authMiddleware, async (req, res) => {
   }
 });
 
-// 👉 DELETE: remove a holding
+
 router.delete('/holdings/:id', authMiddleware, async (req, res) => {
   try {
     const id = req.params.id;

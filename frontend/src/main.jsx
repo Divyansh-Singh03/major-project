@@ -1,6 +1,11 @@
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-import Root from './Root';
-import './index.css';
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
+import App from "./App";
+import "./index.css";   
 
-createRoot(document.getElementById('root')).render(<Root />);
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <BrowserRouter>
+    <App />
+  </BrowserRouter>
+);

@@ -1,66 +1,91 @@
-import React from 'react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import React from "react";
+import {
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  XAxis,
+  YAxis,
+  ResponsiveContainer
+} from "recharts";
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A28FFF'];
+export default function ChartPanel({
+  pieData,
+  portfolioValue
+}) {
 
-export default function ChartPanel({ mainSeries, pieData, portfolioValue }) {
+  const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"];
+
   return (
-    <main className="col-span-8 bg-white rounded-xl shadow p-4">
-      <div className="flex items-start justify-between mb-4">
+    <div className="col-span-8 bg-slate-800/60 backdrop-blur-xl border border-slate-700 rounded-2xl p-8 shadow-2xl">
+
+      {/* TOP HOLDINGS */}
+      <h2 className="text-xl font-semibold text-blue-400 mb-4">
+        Top Holdings
+      </h2>
+
+      <div className="mb-8">
+        <ResponsiveContainer width="100%" height={250}>
+          <BarChart data={pieData}>
+            <XAxis dataKey="name" stroke="#94a3b8" />
+            <YAxis stroke="#94a3b8" />
+            <Tooltip />
+            <Bar
+              dataKey="value"
+              fill="#3b82f6"
+              radius={[6,6,0,0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="grid grid-cols-2 gap-8 items-center">
+
+        {/* PORTFOLIO ALLOCATION */}
         <div>
-          <h3 className="text-lg font-semibold">AAPL</h3>
-          <div className="text-sm text-gray-500">Bought: 2020 • Current: 2025</div>
-        </div>
-        <div className="text-right">
-          <div className="text-sm text-gray-500">Portfolio value</div>
-          <div className="text-xl font-bold">₹{portfolioValue}</div>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        {/* Line Chart */}
-        <div className="col-span-1" style={{ height: 300 }}>
-          <ResponsiveContainer>
-            <LineChart data={mainSeries}>
-              <XAxis dataKey="date" />
-              <YAxis />
+          <h3 className="text-lg font-semibold text-slate-300 mb-4">
+            Portfolio Allocation
+          </h3>
+
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie
+                data={pieData}
+                dataKey="value"
+                nameKey="name"
+                outerRadius={80}
+              >
+                {pieData.map((entry, index) => (
+                  <Cell
+                    key={index}
+                    fill={COLORS[index % COLORS.length]}
+                  />
+                ))}
+              </Pie>
               <Tooltip />
-              <Line type="monotone" dataKey="price" stroke="#8884d8" strokeWidth={2} dot={false} />
-            </LineChart>
+            </PieChart>
           </ResponsiveContainer>
+
         </div>
 
-        {/* Pie Chart */}
-        <div className="col-span-1 flex flex-col items-center justify-center">
-          <div className="w-full h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={90}
-                  label
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-2 text-sm text-gray-600">Allocation</div>
+        {/* PORTFOLIO VALUE */}
+        <div>
+
+          <h3 className="text-lg font-semibold text-slate-300 mb-2">
+            Total Portfolio Value
+          </h3>
+
+          <p className="text-3xl font-bold text-emerald-400">
+            ₹ {portfolioValue.toFixed(2)}
+          </p>
+
         </div>
+
       </div>
 
-      <div className="mt-6">
-        <h4 className="font-semibold mb-2">Stock? (Loss)</h4>
-        <div className="text-sm text-gray-700">
-          Summary / advice area — e.g. show unrealized losses & recommended action.
-        </div>
-      </div>
-    </main>
+    </div>
   );
 }
