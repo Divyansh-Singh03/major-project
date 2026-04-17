@@ -1,25 +1,52 @@
 const express = require('express');
-const router = express.Router();
-const jwt = require('jsonwebtoken');
-const Holding = require('../models/Holding');
+const router  = express.Router();
+const jwt     = require('jsonwebtoken');
+const axios   = require('axios');
+const Holding   = require('../models/Holding');
 const Portfolio = require('../models/Portfolio');
-const priceProvider = require('../services/priceProvider');
+
+const YAHOO_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+  "Accept": "application/json",
+};
 
 // AUTH middleware
 const authMiddleware = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'no token' });
-
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET || 'test');
     req.user = payload;
     next();
-  } catch (err) {
+  } catch {
     return res.status(401).json({ error: 'invalid token' });
   }
 };
 
-// 👉 Helper to recompute portfolio after add/delete
+// Fetch price via Yahoo — auto-tries .NS for Indian stocks
+async function fetchYahooPrice(symbol) {
+  const symbolsToTry = [symbol];
+  // If no suffix, also try NSE variant
+  if (!symbol.endsWith(".NS") && !symbol.endsWith(".BO")) {
+    symbolsToTry.push(symbol + ".NS");
+  }
+  for (const sym of symbolsToTry) {
+    try {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}`;
+      const r   = await axios.get(url, {
+        params: { interval: "1m", range: "1d" },
+        headers: YAHOO_HEADERS,
+        timeout: 6000,
+      });
+      const meta  = r.data?.chart?.result?.[0]?.meta;
+      const price = meta?.regularMarketPrice || meta?.previousClose || 0;
+      if (price > 0) return price;
+    } catch { /* try next */ }
+  }
+  return 0;
+}
+
+// Recompute full portfolio
 async function computePortfolio(userId) {
   let portfolio = await Portfolio.findOne({ user: userId });
   if (!portfolio) {
@@ -28,39 +55,53 @@ async function computePortfolio(userId) {
 
   const holdings = await Holding.find({ portfolio: portfolio._id }).lean();
 
-  const pricePromises = holdings.map(h => priceProvider.getCurrent(h.symbol));
-  const priceResults = await Promise.all(pricePromises);
+  // Fetch prices one by one with small delay to avoid rate limits
+  const delay = (ms) => new Promise(r => setTimeout(r, ms));
+  const totals = [];
 
-  const totals = holdings.map((h, i) => {
-    const current = Number(priceResults[i].current);
-    const value = current * Number(h.shares);
-    const cost = Number(h.avg_buy_price) * Number(h.shares);
-    const gain = value - cost;
-    const gainPct = cost > 0 ? (gain / cost) * 100 : 0;
+  for (let i = 0; i < holdings.length; i++) {
+    const h           = holdings[i];
+    const yahooSym    = h.yahooSymbol || h.symbol;
+    const currentPrice = await fetchYahooPrice(yahooSym);
+    const current     = currentPrice > 0 ? currentPrice : h.avg_buy_price;
+    const value       = current * Number(h.shares);
+    const cost        = Number(h.avg_buy_price) * Number(h.shares);
+    const gain        = value - cost;
+    const gainPct     = cost > 0 ? (gain / cost) * 100 : 0;
 
-    return { ...h, current, value, cost, gain, gainPct };
-  });
+    totals.push({
+      ...h,
+      current,
+      value,
+      cost,
+      gain,
+      gainPct,
+      currency: h.currency || 'USD',
+      market:   h.market   || 'US',
+    });
+
+    if (i < holdings.length - 1) await delay(300); // small gap between requests
+  }
 
   const portfolioValue = totals.reduce((s, h) => s + h.value, 0);
-
   return { holdings: totals, portfolioValue };
 }
 
-// 👉 GET holdings (working one)
+// GET portfolio
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const result = await computePortfolio(req.user.userId);
-    res.json(result);
+    res.json(await computePortfolio(req.user.userId));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'failed to fetch portfolio' });
   }
 });
 
-// 👉 POST: Add a holding (NOW returns updated portfolio)
+// POST add holding
+// Body: { symbol, yahooSymbol, shares, avg_buy_price, currency, market }
 router.post('/holdings', authMiddleware, async (req, res) => {
   try {
-    const { symbol, shares, avg_buy_price } = req.body;
+    const { symbol, yahooSymbol, shares, avg_buy_price, currency, market } = req.body;
 
     let portfolio = await Portfolio.findOne({ user: req.user.userId });
     if (!portfolio) {
@@ -68,29 +109,27 @@ router.post('/holdings', authMiddleware, async (req, res) => {
     }
 
     await Holding.create({
-      portfolio: portfolio._id,
-      symbol: symbol.toUpperCase(),
-      shares: Number(shares),
-      avg_buy_price: Number(avg_buy_price)
+      portfolio:     portfolio._id,
+      symbol:        symbol.toUpperCase(),
+      yahooSymbol:   (yahooSymbol || symbol).toUpperCase(),
+      currency:      currency || 'USD',
+      market:        market   || 'US',
+      shares:        Number(shares),
+      avg_buy_price: Number(avg_buy_price),
     });
 
-    const result = await computePortfolio(req.user.userId);
-    res.json(result); // return full portfolio
+    res.json(await computePortfolio(req.user.userId));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'failed to add holding' });
   }
 });
 
-
+// DELETE holding
 router.delete('/holdings/:id', authMiddleware, async (req, res) => {
   try {
-    const id = req.params.id;
-
-    await Holding.deleteOne({ _id: id });
-
-    const result = await computePortfolio(req.user.userId);
-    res.json(result); // return updated portfolio
+    await Holding.deleteOne({ _id: req.params.id });
+    res.json(await computePortfolio(req.user.userId));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'failed to delete holding' });

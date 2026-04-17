@@ -22,7 +22,7 @@ router.post('/register', async (req, res) => {
     const hash = await bcrypt.hash(password, 10);
     const user = await User.create({ email, password_hash: hash, name: name || '' });
 
-    // create default portfolio for the new user so frontend can immediately fetch it
+    
     await Portfolio.create({ user: user._id, name: 'Main' });
 
     const token = jwt.sign(

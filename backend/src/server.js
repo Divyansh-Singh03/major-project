@@ -4,12 +4,11 @@ const authRoutes = require('./routes/auth');
 const portfolioRoutes = require('./routes/portfolio');
 const priceRoutes = require('./routes/price');
 const stockRoutes = require("./routes/stocks");
-require('./db'); // connect to Mongo
+require('./db');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-
 
 app.use("/api/stocks", stockRoutes);
 
