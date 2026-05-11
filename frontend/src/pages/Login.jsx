@@ -54,7 +54,7 @@ export default function Login() {
           <div style={{ background: "linear-gradient(135deg,#22c55e,#16a34a)", borderRadius: 10, padding: "8px 10px", boxShadow: "0 4px 14px #22c55e44" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
           </div>
-          <span style={{ fontSize: 18, fontWeight: 800, color: "#f1f5f9", letterSpacing: -0.3 }}>StockTracker</span>
+          <span style={{ fontSize: 18, fontWeight: 800, color: "#f1f5f9", letterSpacing: -0.3 }}>StockZo</span>
         </div>
 
         <h2 style={{ margin: "0 0 6px", fontSize: 24, fontWeight: 800, color: "#f1f5f9", letterSpacing: -0.4 }}>Welcome back</h2>
